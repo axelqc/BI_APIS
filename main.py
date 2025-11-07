@@ -33,7 +33,7 @@ USERNAME = os.getenv("USERNAME")
 
 class ImageRequest(BaseModel):
     filename: str
-    image_url: str
+    image_base64: str
     email_reciever: str 
     subject: str
 
@@ -42,7 +42,7 @@ class ImageRequest(BaseModel):
 async def send_image(data: ImageRequest):
     try:
         # Decodificar imagen base64
-        response = requests.get(data.image_url)
+        response = requests.get(data.image_base64)
         response.raise_for_status()
         image_data = response.content  # bytes
         email_reciever = data.email_reciever

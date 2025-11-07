@@ -28,7 +28,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 USERNAME = os.getenv("USERNAME")
- 
+IMGBB_API_KEY = os.getenv("IMGBB_API_KEY")
 
 
 class ImageRequest(BaseModel):

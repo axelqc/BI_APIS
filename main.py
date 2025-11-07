@@ -86,32 +86,49 @@ async def send_image(data: ImageRequest):
             pass
 
 
+# Función auxiliar para subir la imagen
+def subir_a_imgbb(image_base64: str) -> str:
+    """Sube una imagen base64 a ImgBB y devuelve la URL pública."""
+    response = requests.post(
+        "https://api.imgbb.com/1/upload",
+        data={"key": IMGBB_API_KEY, "image": image_base64}
+    )
+    response.raise_for_status()
+    return response.json()["data"]["url"]
 
+# Modelo de entrada
 class CodeRequest(BaseModel):
     code: str
+plt.show = lambda *args, **kwargs: None
 
 @app.post("/run-plot/")
 async def run_plot(req: CodeRequest):
     """
     Recibe código Python que genera un gráfico con matplotlib/seaborn
-    y devuelve la imagen en Base64.
+    y devuelve la URL pública de la imagen subida a ImgBB.
     """
     try:
-        # Limpiar figuras previas
+        # 1️⃣ Limpiar figuras previas
         plt.close("all")
 
-        # Redirigir stdout para capturar prints (opcional)
-        with contextlib.redirect_stdout(io.StringIO()):
-            exec(req.code, {})
+        # 2️⃣ Desactivar plt.show() para que no abra ventanas
+        plt.show = lambda *args, **kwargs: None
 
-        # Guardar figura actual en memoria
+        # 3️⃣ Ejecutar el código del gráfico
+        exec(req.code, {})
+
+        # 4️⃣ Guardar figura en memoria
         buf = io.BytesIO()
         plt.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_base64 = base64.b64encode(buf.read()).decode("utf-8")
         buf.close()
 
-        return JSONResponse(content={"image_base64": img_base64})
+        # 5️⃣ Subir a ImgBB y obtener URL pública
+        image_url = subir_a_imgbb(img_base64)
+
+        # 6️⃣ Devolver la URL
+        return JSONResponse(content={"image_url": image_url})
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import contextlib
+import requests
 
 load_dotenv()
 
@@ -32,7 +33,7 @@ USERNAME = os.getenv("USERNAME")
 
 class ImageRequest(BaseModel):
     filename: str
-    image_base64: str
+    image_url: str
     email_reciever: str 
     subject: str
 
@@ -41,7 +42,9 @@ class ImageRequest(BaseModel):
 async def send_image(data: ImageRequest):
     try:
         # Decodificar imagen base64
-        image_data = base64.b64decode(data.image_base64)
+        response = requests.get(data.image_url)
+        response.raise_for_status()
+        image_data = response.content  # bytes
         email_reciever = data.email_reciever
         subject = data.subject
 

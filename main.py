@@ -26,6 +26,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+USERNAME = os.getenv("USERNAME")
  
 
 
@@ -67,7 +68,7 @@ async def send_image(data: ImageRequest):
         # Enviar correo
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.login(USERNAME, EMAIL_PASSWORD)
             server.send_message(msg)
 
         return {"status": "success", "message": "Correo enviado correctamente"}

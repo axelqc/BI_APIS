@@ -1,0 +1,113 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import base64
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from email.utils import formataddr
+from email.header import Header
+from email.mime.image import MIMEImage
+import os
+from dotenv import load_dotenv
+import tempfile
+from fastapi.responses import JSONResponse
+import matplotlib.pyplot as plt
+import io
+import base64
+import contextlib
+
+load_dotenv()
+
+app = FastAPI()
+
+# Datos del correo
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+ 
+
+
+class ImageRequest(BaseModel):
+    filename: str
+    image_base64: str
+    email_reciever: str 
+    subject: str
+
+
+@app.post("/send-image/")
+async def send_image(data: ImageRequest):
+    try:
+        # Decodificar imagen base64
+        image_data = base64.b64decode(data.image_base64)
+        email_reciever = data.email_reciever
+        subject = data.subject
+
+        # Guardar temporalmente la imagen
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            tmp.write(image_data)
+            tmp_path = tmp.name
+
+        # Crear mensaje
+        msg = MIMEMultipart()
+        msg["From"] = formataddr((str(Header("FastAPI Service", "utf-8")), EMAIL_SENDER))
+        msg["To"] = email_reciever
+        msg["Subject"] = subject
+
+        body = MIMEText("Se adjunta el gráfico por la API.", "plain")
+        msg.attach(body)
+
+        # Adjuntar imagen
+        with open(tmp_path, "rb") as f:
+            part = MIMEApplication(f.read(), Name=data.filename)
+        part["Content-Disposition"] = f'attachment; filename="{data.filename}"'
+        msg.attach(part)
+
+        # Enviar correo
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        return {"status": "success", "message": "Correo enviado correctamente"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Limpiar archivo temporal
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+
+
+class CodeRequest(BaseModel):
+    code: str
+
+@app.post("/run-plot/")
+async def run_plot(req: CodeRequest):
+    """
+    Recibe código Python que genera un gráfico con matplotlib/seaborn
+    y devuelve la imagen en Base64.
+    """
+    try:
+        # Limpiar figuras previas
+        plt.close("all")
+
+        # Redirigir stdout para capturar prints (opcional)
+        with contextlib.redirect_stdout(io.StringIO()):
+            exec(req.code, {})
+
+        # Guardar figura actual en memoria
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", bbox_inches="tight")
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode("utf-8")
+        buf.close()
+
+        return JSONResponse(content={"image_base64": img_base64})
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
